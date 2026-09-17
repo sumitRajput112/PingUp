@@ -7,7 +7,7 @@ export const inngest = new Inngest({ id: "pingup-app" });
 const syncUserCreation = inngest.createFunction(
     {
         id: 'sync-user-from-clerk',
-    trigger:{
+    triggers:{
         event:'clerk/user.created'
             }       
     },
@@ -37,7 +37,7 @@ const syncUserCreation = inngest.createFunction(
 const syncUserUpdation= inngest.createFunction(
     {
         id: 'update-user-from-clerk',
-    trigger:{
+    triggers:{
         event:'clerk/user.updated'
             }       
     },
@@ -57,7 +57,7 @@ const syncUserUpdation= inngest.createFunction(
 const syncUserDeletion= inngest.createFunction(
     {
         id: 'delete-user-from-clerk',
-    trigger:{
+    triggers:{
         event:'clerk/user.deleted'
             }       
     },
