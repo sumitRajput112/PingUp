@@ -4,21 +4,49 @@ import Connection from "../models/Connection.js"
 import Post from "../models/Post.js"
 import User from "../models/User.js"
 import fs from 'fs'
+import { clerkClient } from '@clerk/express'
 
 
+// find user in database, if not found then create it from Clerk
+const getOrCreateUser = async (userId) => {
+    let user = await User.findById(userId)
+
+    if (!user) {
+        const clerkUser = await clerkClient.users.getUser(userId)
+        const email = clerkUser.emailAddresses[0].emailAddress
+
+        let username = email.split('@')[0]
+        const usernameTaken = await User.findOne({ username })
+        if (usernameTaken) {
+            username = username + Math.floor(Math.random() * 10000)
+        }
+
+        user = await User.findOneAndUpdate(
+            { _id: userId },
+            {
+                $setOnInsert: {
+                    email,
+                    full_name: clerkUser.firstName + ' ' + clerkUser.lastName,
+                    profile_picture: clerkUser.imageUrl,
+                    username,
+                },
+            },
+            { upsert: true, new: true }
+        )
+    }
+
+    return user
+}
 
 // get User Data Using userId
-export const getUserData=async (req,res) => {
+export const getUserData = async (req, res) => {
     try {
-        const {userId}=req.auth()
-        const user =await User.findById(userId)
-        if(!user){
-            return res.json({success:false,message:"user not found"})
-        }
-        return res.json({success:true,user})
+        const { userId } = req.auth()
+        const user = await getOrCreateUser(userId)
+        return res.json({ success: true, user })
     } catch (error) {
-        console.log(error);
-        res.json({success:false , message:error.message})
+        console.log(error)
+        res.json({ success: false, message: error.message })
     }
 }
 
@@ -223,7 +251,8 @@ export const sendConnectionRequest= async (req,res) => {
 export const getUserConnections= async (req,res) => {
     try {
         const {userId}= req.auth()
-        const user = await User.findById(userId.populate('connections followers following'))
+        const user = await getOrCreateUser(userId)
+         await user.populate('connections followers following')
 
         const connections =user.connections
         const followers =user.followers
@@ -275,7 +304,7 @@ export const getUserProfiles= async (req,res) => {
   try {
     const {profileId}=req.body;
     const profile =await User.findById(profileId)
-    if(!profileId){
+    if(!profile){
         return res.json({success:false , message:"Profile not found"});
     }
     const posts=await Post.find({user:profileId}).populate('user')

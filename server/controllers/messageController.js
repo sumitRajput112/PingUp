@@ -22,11 +22,13 @@ export const sseController=(req,res)=>{
     res.write('log:Connected to SSE stream\n\n');
 
     // Handle client disconnection
-    req.on('close',()=>{
-        // Remove the client's response object from the connection array
-        delete connections[userId];
+     req.on('close',()=>{
+        // Remove the client's response object only if it is still this connection
+        if (connections[userId] === res) {
+            delete connections[userId];
+        }
         console.log('client disconnected')
-    })    
+    })
 
 }
 
@@ -38,15 +40,15 @@ export const sendMessage=async(req,res)=>{
         const image=req.file;
 
         let media_url='';
-        let message_type=image ?'immage':'text';
+        let message_type=image ?'image':'text';
         
-        if(message_type='image'){
+        if(message_type ==='image'){
             const response = await imageKit.files.upload({
                             file: fs.createReadStream(image.path),
                             fileName: image.originalname,
                         })
             
-                        const url = imageKit.helper.buildSrc({
+                        media_url = imageKit.helper.buildSrc({
                     urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
                     src: response.filePath,
                             transformation : [
@@ -92,7 +94,7 @@ export const getChatMessages = async (req, res) => {
                 { from_user_id: userId, to_user_id },
                 { from_user_id: to_user_id, to_user_id: userId }
             ]
-        }).sort({created_at: -1})
+        }).sort({createdAt: -1})
         // mark messages as seen
         await Message.updateMany({ from_user_id: to_user_id, to_user_id: userId },{seen:true})
 
@@ -107,8 +109,10 @@ export const getChatMessages = async (req, res) => {
 export const getUserRecentMessages = async (req,res)=>{
     try {
         const { userId } = req.auth();
-        const messages = (await Message.find({to_user_id: userId}.populate('from_user_id to_user_id'))).toSorted({created_at:-1});
-        res.json({success:true,messages});
+        const messages = await Message.find({ to_user_id: userId })
+             .populate('from_user_id to_user_id')
+             .sort({ createdAt: -1 });
+        res.json({ success: true, messages });
         
     } catch (error) {
         res.json({ success: false, message: error.message });
