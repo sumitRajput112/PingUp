@@ -7,11 +7,12 @@ import { ClerkProvider } from '@clerk/react'
 import {Provider} from 'react-redux'
 import { store } from './app/store.js'
 import { clerkAppearance } from './configs/clerkAppearance.js'
+import { ui } from '@clerk/ui'
 
 
 
 createRoot(document.getElementById('root')).render(
-    <ClerkProvider appearance={clerkAppearance}>
+    <ClerkProvider appearance={clerkAppearance} ui={ui}>
         <BrowserRouter>
             <Provider store={store}>
                  <App />
