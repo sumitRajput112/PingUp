@@ -68,14 +68,13 @@ export const sendMessage=async(req,res)=>{
             media_url
         })
 
-        res.json({success:true,message})
-
         // Send message to to-user_id using server side event
-
         const messageWithUserData = await Message.findById(message._id).populate('from_user_id');
         if(connections[to_user_id]){
             connections[to_user_id].write(`data:${JSON.stringify(messageWithUserData)}\n\n`)
         }
+
+        res.json({success:true, message: messageWithUserData})
 
     } catch (error) {
         console.log(error);
@@ -105,15 +104,33 @@ export const getChatMessages = async (req, res) => {
     }
 }
 
-// 
-export const getUserRecentMessages = async (req,res)=>{
+// Get recent conversations (sent + received), latest message per user
+export const getUserRecentMessages = async (req, res) => {
     try {
         const { userId } = req.auth();
-        const messages = await Message.find({ to_user_id: userId })
-             .populate('from_user_id to_user_id')
-             .sort({ createdAt: -1 });
+
+        const all = await Message.find({
+            $or: [{ from_user_id: userId }, { to_user_id: userId }]
+        })
+            .populate('from_user_id to_user_id')
+            .sort({ createdAt: -1 });
+
+        const seenPartners = new Set();
+        const messages = [];
+
+        for (const m of all) {
+            if (!m.from_user_id || !m.to_user_id) continue;
+            const partnerId = String(m.from_user_id._id) === String(userId)
+                ? String(m.to_user_id._id)
+                : String(m.from_user_id._id);
+
+            if (!seenPartners.has(partnerId)) {
+                seenPartners.add(partnerId);
+                messages.push(m);
+            }
+        }
+
         res.json({ success: true, messages });
-        
     } catch (error) {
         res.json({ success: false, message: error.message });
     }
